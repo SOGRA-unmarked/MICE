@@ -29,8 +29,7 @@ Thumbs.db
 # Uploads
 backend/uploads/
 
-# Prisma
-backend/prisma/migrations/
+
 
 # Testing
 coverage/
