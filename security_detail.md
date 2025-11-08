@@ -12,7 +12,10 @@
 6.  [무차별 대입 공격 (Brute Force) 방지](#6-무차별-대입-공격-brute-force-방지)
 7.  [CSRF (Cross-Site Request Forgery) 방지](#7-csrf-cross-site-request-forgery-방지)
 8.  [경로 조작 (Path Traversal) 방지](#8-경로-조작-path-traversal-방지)
-9.  [기타 보안 강화 조치](#9-기타-보안-강화-조치)
+9.  [행사장 입장 관리 보안](#9-행사장-입장-관리-보안)
+10. [실시간 데이터 업데이트 보안](#10-실시간-데이터-업데이트-보안)
+11. [QR 스캔 보안](#11-qr-스캔-보안)
+12. [기타 보안 강화 조치](#12-기타-보안-강화-조치)
 
 ---
 
@@ -230,10 +233,111 @@ JWT 토큰을 저장하는 쿠키에 `sameSite: 'strict'` 속성을 부여했습
     }
     ```
 
-## 9. 기타 보안 강화 조치
+## 9. 행사장 입장 관리 보안
+
+### 문제점
+참가자의 QR 코드가 공유되거나 복제되어 무단 입장이 발생할 수 있으며, 동일 참가자가 여러 번 입장 체크를 받을 수 있습니다.
+
+### 해결 방안
+행사장 입장 시스템에 여러 단계의 검증 및 중복 방지 메커니즘을 구현했습니다.
+
+1.  **고유 사용자 ID 검증**: 참가자의 QR 코드에는 데이터베이스의 고유 사용자 ID가 포함되어 있으며, 스캔 시 해당 ID의 유효성을 검증합니다.
+2.  **중복 입장 방지**: 데이터베이스에 `EventEntry` 테이블의 `userId`에 대한 `unique` 제약조건을 설정하여 동일 사용자의 중복 입장을 원천적으로 차단합니다.
+3.  **입장 이력 추적**: 모든 입장 시도를 타임스탬프와 함께 기록하여 감사 추적(audit trail)이 가능합니다.
+4.  **실시간 피드백**: 이미 입장한 참가자가 재스캔될 경우, 관리자에게 "Already checked in" 메시지를 표시하여 즉시 인지할 수 있도록 합니다.
+
+-   **적용된 파일**: `backend/routes/admin.js`, `backend/prisma/schema.prisma`
+-   **상세 코드**:
+    ```javascript
+    // backend/routes/admin.js
+    // 이미 입장했는지 확인
+    const existingEntry = await prisma.eventEntry.findUnique({
+      where: { userId: parseInt(userId) }
+    });
+
+    if (existingEntry) {
+      return res.status(200).json({
+        message: 'Already checked in',
+        alreadyCheckedIn: true,
+        entryTime: existingEntry.enteredAt,
+        // ...
+      });
+    }
+
+    // 새로운 입장 기록 생성
+    const eventEntry = await prisma.eventEntry.create({
+      data: { userId: parseInt(userId) }
+    });
+    ```
+
+## 10. 실시간 데이터 업데이트 보안
+
+### 문제점
+연사 화면에서 실시간으로 질문을 확인하기 위해 폴링(polling)을 사용할 때, 과도한 API 요청으로 서버에 부하를 줄 수 있습니다.
+
+### 해결 방안
+실시간 업데이트 기능에 적절한 간격 설정 및 클라이언트 측 제어를 구현했습니다.
+
+1.  **적절한 폴링 간격**: 10초 간격으로 설정하여 서버 부하와 사용자 경험 사이의 균형을 유지합니다.
+2.  **선택적 활성화**: 사용자가 실시간 업데이트를 ON/OFF 할 수 있는 토글 제공으로 불필요한 API 호출을 방지합니다.
+3.  **Rate Limiting 적용**: 기존의 API Rate Limiting이 모든 질문 조회 API에도 적용되어 과도한 요청을 차단합니다.
+4.  **컴포넌트 언마운트 시 정리**: React의 `useEffect` cleanup 함수를 사용하여 컴포넌트가 언마운트될 때 interval을 정리하여 메모리 누수를 방지합니다.
+
+-   **적용된 파일**: `frontend/src/pages/speaker/SessionDetail.jsx`
+-   **상세 코드**:
+    ```javascript
+    useEffect(() => {
+      if (!autoRefresh) return;
+
+      const interval = setInterval(() => {
+        fetchQuestions();
+      }, 10000); // 10초마다 폴링
+
+      return () => clearInterval(interval); // cleanup
+    }, [id, autoRefresh, questions.length]);
+    ```
+
+## 11. QR 스캔 보안
+
+### 문제점
+관리자가 참가자의 QR 코드를 스캔할 때, 유효하지 않은 QR 코드나 조작된 데이터가 입력될 수 있습니다.
+
+### 해결 방안
+QR 스캔 프로세스에 여러 단계의 검증을 추가했습니다.
+
+1.  **데이터 타입 검증**: 스캔된 QR 코드 값이 숫자형 사용자 ID인지 확인하고, 유효하지 않은 형식은 즉시 거부합니다.
+2.  **사용자 존재 확인**: 데이터베이스에서 해당 ID의 사용자가 실제로 존재하는지 확인합니다.
+3.  **중복 스캔 방지**: 클라이언트 측에서 `isProcessing` 상태를 사용하여 처리 중일 때 추가 스캔을 무시합니다.
+4.  **타임아웃 처리**: 3초 후 스캔 결과를 자동으로 제거하여 다음 스캔을 준비합니다.
+
+-   **적용된 파일**: `frontend/src/pages/admin/EventEntry.jsx`
+-   **상세 코드**:
+    ```javascript
+    const onScanSuccess = async (decodedText) => {
+      if (isProcessing) return; // 중복 방지
+      setIsProcessing(true);
+
+      const userId = parseInt(decodedText);
+      if (isNaN(userId)) {
+        // 유효하지 않은 형식 거부
+        setLastScanResult({
+          success: false,
+          message: `유효하지 않은 QR 코드입니다.`
+        });
+        return;
+      }
+
+      // API 호출 및 검증
+      const response = await api.post('/api/admin/event-entry', { userId });
+      // ...
+    };
+    ```
+
+## 12. 기타 보안 강화 조치
 
 -   **비밀번호 해싱**: `bcrypt` 라이브러리를 사용하여 비밀번호를 안전한 해시값으로 변환하여 저장합니다. (Salt 포함, 10라운드)
 -   **CORS 정책**: `cors` 라이브러리를 사용하여, 환경 변수에 등록된 허용된 도메인(Whitelist)에서 오는 요청만 허용합니다.
 -   **민감 정보 노출 방지**: 프로덕션 환경에서는 상세한 에러 메시지나 스택 트레이스를 사용자에게 노출하지 않습니다.
 -   **세션 어뷰징 방지**: 출석 체크용 QR 코드는 60초의 짧은 유효기간을 갖는 일회성 토큰으로 생성하여, QR코드 캡처 이미지 공유를 통한 대리 출석을 방지합니다.
 -   **보안 헤더**: `helmet` 라이브러리를 사용하여 기본적인 보안 헤더(HSTS 등)를 적용합니다.
+-   **즐겨찾기 필터 권한**: 각 사용자는 자신의 즐겨찾기 정보만 조회할 수 있으며, 다른 사용자의 즐겨찾기는 볼 수 없습니다.

@@ -21,8 +21,22 @@
 
 ### 3. 인터랙티브 세션 관리
 - **실시간 Q&A**: 참가자는 세션 상세 페이지에서 연사에게 질문을 등록할 수 있으며, 연사는 자신의 세션 관리 페이지에서 질문 목록을 확인할 수 있습니다.
+  - **실시간 질문 업데이트**: 연사 화면에서 10초마다 자동으로 새로운 질문을 확인하고 알림을 제공합니다.
+  - **새 질문 알림**: 브라우저 알림, 알림음, 시각적 하이라이트로 새로운 질문 도착을 즉시 인지할 수 있습니다.
 - **발표 자료 관리**: 연사는 세션과 관련된 발표 자료(PDF, PPT 등)를 업로드할 수 있고, 참가자는 이를 다운로드할 수 있습니다.
 - **즐겨찾기**: 참가자는 관심 있는 세션을 즐겨찾기 목록에 추가하여 별도로 관리할 수 있습니다.
+  - **즐겨찾기 필터**: 참가자 대시보드에서 즐겨찾기한 세션만 필터링하여 볼 수 있습니다.
+
+### 4. 행사장 입장 관리
+- **QR 스캔 입장**: 관리자가 참가자의 정적 QR 코드(나의 비표)를 스캔하여 행사장 입장을 체크합니다.
+- **입장 통계**: 총 입장 인원, 전체 참가 등록자, 입장률을 실시간으로 확인할 수 있습니다.
+- **입장 내역 관리**: 입장한 참가자의 이름, 이메일, 소속, 입장 시각을 기록하고 조회할 수 있습니다.
+- **중복 체크**: 동일 참가자의 중복 입장을 자동으로 감지하고 알림을 제공합니다.
+
+### 5. 세션별 참석 현황 관리
+- **참석자 목록 조회**: 관리자가 각 세션에 참석한 인원의 상세 목록을 확인할 수 있습니다.
+- **참석 통계**: 세션별 참석 인원수를 실시간으로 파악할 수 있습니다.
+- **참석 정보**: 참석자의 이름, 이메일, 소속, 체크인 시각을 모달 창으로 확인할 수 있습니다.
 
 ## 3. 최종 기술 스택
 
@@ -151,6 +165,18 @@ model AttendanceLog {
   @@unique([userId, sessionId])
   @@map("attendance_logs")
 }
+
+// 행사장 입장 로그 테이블
+model EventEntry {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  enteredAt DateTime @default(now()) @map("entered_at")
+
+  user User
+
+  @@unique([userId])
+  @@map("event_entries")
+}
 ```
 
 ## 5. API 엔드포인트 명세
@@ -160,7 +186,7 @@ model AttendanceLog {
 | `/api/auth/register` | `POST` | Public | 회원가입 | - |
 | `/api/auth/login` | `POST` | Public | 로그인 | - |
 | `/api/users/me` | `GET` | All (Auth) | 내 정보 조회 | `authMiddleware` |
-| `/api/sessions` | `GET` | All (Auth) | 전체 세션 목록 | `authMiddleware` |
+| `/api/sessions` | `GET` | All (Auth) | 전체 세션 목록 (즐겨찾기 필터 지원) | `authMiddleware` |
 | `/api/sessions/:id` | `GET` | All (Auth) | 세션 상세 정보 | `authMiddleware` |
 | `/api/sessions/:id/questions` | `POST` | All (Auth) | 세션에 질문 등록 | `authMiddleware` |
 | `/api/sessions/:id/favorite` | `POST` | All (Auth) | 즐겨찾기 추가 | `authMiddleware` |
@@ -176,6 +202,8 @@ model AttendanceLog {
 | `/api/admin/sessions/:id` | `PUT`, `DELETE` | Admin | 세션 수정/삭제 | `authMiddleware`, `isAdmin` |
 | `/api/admin/sessions/:id/dynamic-qr` | `GET` | Admin | 동적 QR 생성 | `authMiddleware`, `isAdmin` |
 | `/api/admin/sessions/:id/attendance` | `GET` | Admin | 세션 출석 현황 | `authMiddleware`, `isAdmin` |
+| `/api/admin/event-entry` | `POST` | Admin | 참가자 입장 체크인 | `authMiddleware`, `isAdmin` |
+| `/api/admin/event-entry/stats` | `GET` | Admin | 행사장 입장 통계 | `authMiddleware`, `isAdmin` |
 
 ## 6. 화면별 기능 명세
 
@@ -184,6 +212,8 @@ model AttendanceLog {
 
 ### 6.2. Attendee (참가자)
 - **`/` (대시보드)**: 전체 세션 목록을 카드로 표시. 세션 클릭 시 상세 페이지로 이동.
+  - **즐겨찾기 필터**: 즐겨찾기한 세션만 보기/전체 보기 토글 버튼 제공.
+  - **즐겨찾기 표시**: 즐겨찾기한 세션에 별표 아이콘 표시.
 - **`/sessions/:id` (세션 상세)**: 세션의 상세 정보, 연사 정보, 발표 자료 다운로드, Q&A 등록 및 목록 확인 기능 제공.
 - **`/my-pass` (나의 비표)**: 본인의 ID가 담긴 정적 QR 코드를 표시. 행사장 입장 시 사용.
 - **`/scan` (출석 스캔)**: 카메라를 열어 세션룸의 동적 QR 코드를 스캔하고 출석을 인증.
@@ -191,12 +221,22 @@ model AttendanceLog {
 ### 6.3. Speaker (연사)
 - **`/speaker/dashboard` (대시보드)**: 본인에게 할당된 세션 목록만 표시.
 - **`/speaker/sessions/:id` (세션 관리)**: 세션 상세 정보, 등록된 Q&A 목록 확인, 발표 자료 업로드 기능 제공.
+  - **실시간 질문 업데이트**: 10초마다 자동으로 새로운 질문 확인 (토글 가능).
+  - **새 질문 알림**: 새 질문 도착 시 브라우저 알림, 알림음, 시각적 하이라이트 제공.
+  - **수동 새로고침**: 즉시 질문 목록을 업데이트할 수 있는 새로고침 버튼 제공.
 
 ### 6.4. Admin (관리자)
-- **`/admin/dashboard` (대시보드)**: 전체 사용자, 세션, 참가자 수 등 주요 통계 정보를 표시. 사용자/세션 관리 페이지로 이동하는 링크 제공.
+- **`/admin/dashboard` (대시보드)**: 전체 사용자, 세션, 참가자 수 등 주요 통계 정보를 표시. 사용자/세션/행사장 입장 관리 페이지로 이동하는 링크 제공.
 - **`/admin/users` (사용자 관리)**: 전체 사용자 목록 표시. 사용자 생성, 역할 변경, 정보 수정, 삭제 기능 제공.
 - **`/admin/sessions` (세션 관리)**: 전체 세션 목록 표시. 세션 생성, 정보 수정, 삭제 기능 제공.
+  - **참석 현황 버튼**: 각 세션의 참석자 목록을 모달로 확인할 수 있는 버튼 제공.
+  - **참석자 정보**: 참석자의 이름, 이메일, 소속, 체크인 시각을 테이블로 표시.
 - **`/admin/sessions/:id/qr-display` (동적 QR 표시)**: 특정 세션의 출석 체크용 동적 QR 코드를 전체 화면으로 표시. 60초마다 자동 갱신.
+- **`/admin/event-entry` (행사장 입장 관리)**: 참가자의 QR 코드를 스캔하여 행사장 입장을 체크합니다.
+  - **실시간 QR 스캐너**: html5-qrcode를 사용한 카메라 기반 QR 스캔.
+  - **입장 통계**: 총 입장 인원, 전체 참가 등록자, 입장률을 카드로 표시.
+  - **입장 내역**: 입장한 참가자의 목록을 시간순으로 정렬하여 테이블로 표시.
+  - **중복 체크 알림**: 이미 입장한 참가자 재스캔 시 알림 표시.
 
 ## 7. 배포 아키텍처
 
