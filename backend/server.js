@@ -72,12 +72,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rate Limiting - 모든 API 엔드포인트에 적용
 app.use('/api/', apiLimiter);
 
-// Static files for uploaded materials - 보안 헤더 추가
-app.use('/uploads', (req, res, next) => {
-  res.setHeader('Content-Disposition', 'attachment');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  next();
-}, express.static(path.join(__dirname, 'uploads')));
+// 보안 강화를 위해 /uploads 정적 파일 서빙을 비활성화하고 API를 통한 다운로드만 허용합니다.
 
 // API Routes
 app.use('/api/auth', authRoutes);

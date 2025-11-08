@@ -283,43 +283,18 @@ router.get('/:id/material', authMiddleware, async (req, res) => {
     }
 
     // 보안 헤더 설정
-    const ext = path.extname(material.originalFileName).toLowerCase();
-    const mimeTypes = {
-      '.pdf': 'application/pdf',
-      '.ppt': 'application/vnd.ms-powerpoint',
-      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      '.doc': 'application/msword',
-      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    };
-
-    const contentType = mimeTypes[ext] || 'application/octet-stream';
-
-    // 보안 헤더 직접 설정
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${material.originalFileName}"`);
-    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Content-Disposition과 Content-Type은 res.download에서 자동으로 설정합니다.
+    // X-Content-Type-Options는 helmet 미들웨어를 통해 전역으로 설정됩니다.
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
-    console.log('Download material - Headers set:', {
-      'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${material.originalFileName}"`,
-      'X-Content-Type-Options': 'nosniff',
-      'Cache-Control': 'no-store, no-cache, must-revalidate, private'
-    });
-
-    // 파일 스트림으로 전송 (헤더 유지)
-    const fileStream = fs.createReadStream(filePath);
-
-    fileStream.on('error', (error) => {
-      console.error('File stream error:', error);
-      if (!res.headersSent) {
-        res.status(500).json({
-          error: { message: 'Failed to read file' }
-        });
+    res.download(filePath, material.originalFileName, (err) => {
+      if (err) {
+        console.error('File download error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: { message: 'Error downloading file' } });
+        }
       }
     });
-
-    fileStream.pipe(res);
   } catch (error) {
     console.error('Download material error:', error);
     res.status(500).json({
