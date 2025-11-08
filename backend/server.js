@@ -36,8 +36,12 @@ app.use(helmet({
 
 // CORS 설정 개선 - 여러 origin 지원
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000'];
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'https://mice-orcin.vercel.app' // 기본 Vercel URL
+    ];
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -47,6 +51,7 @@ const corsOptions = {
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      logger.warn('CORS blocked origin:', { origin, allowedOrigins });
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -118,8 +123,10 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   logger.info(`🚀 MICE Backend Server running on port ${PORT}`);
   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🔒 Allowed CORS Origins: ${allowedOrigins.join(', ')}`);
   console.log(`🚀 MICE Backend Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔒 Allowed CORS Origins: ${allowedOrigins.join(', ')}`);
 });
 
 // Trigger redeploy
