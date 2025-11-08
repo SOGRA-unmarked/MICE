@@ -282,7 +282,7 @@ router.get('/:id/material', authMiddleware, async (req, res) => {
       });
     }
 
-    // Content-Type 헤더 설정
+    // 보안 헤더 설정
     const ext = path.extname(material.originalFileName).toLowerCase();
     const mimeTypes = {
       '.pdf': 'application/pdf',
@@ -292,10 +292,20 @@ router.get('/:id/material', authMiddleware, async (req, res) => {
       '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     };
 
+    // Content-Type 설정
     res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+
+    // Content-Disposition: attachment (강제 다운로드, XSS 방지)
     res.setHeader('Content-Disposition', `attachment; filename="${material.originalFileName}"`);
 
-    res.download(filePath, material.originalFileName);
+    // X-Content-Type-Options: nosniff (MIME 스니핑 방지)
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    // Cache-Control (캐시 방지 - 민감한 파일)
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+
+    // 파일 전송
+    res.sendFile(filePath);
   } catch (error) {
     console.error('Download material error:', error);
     res.status(500).json({
