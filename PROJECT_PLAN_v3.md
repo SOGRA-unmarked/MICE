@@ -284,3 +284,4 @@ model AttendanceLog {
   - `ALLOWED_ORIGINS`, `JWT_SECRET` 등 민감 정보 환경 변수화
 - **HTTPS 강제**: 프로덕션 환경에서 HTTPS만 허용 (`secure: true` 쿠키 옵션).
 - **로그 파일 관리**: Railway에서 Winston 로그를 통한 보안 이벤트 추적.
+ 
