@@ -95,11 +95,11 @@ const EventEntry = () => {
       // 통계 새로고침
       fetchStats()
 
-      // 스캔 결과 3초 후 자동 제거하고 다시 스캔 가능하게
+      // 성공 시 스캔 결과 5초 후 자동 제거하고 다시 스캔 가능하게
       setTimeout(() => {
         setLastScanResult(null)
         setIsProcessing(false)
-      }, 3000)
+      }, 5000)
     } catch (error) {
       console.error('입장 처리 에러:', error)
       setLastScanResult({
