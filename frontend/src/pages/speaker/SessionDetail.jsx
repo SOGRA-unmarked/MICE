@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import axios from 'axios'
+import api from '../../config/api'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
 
@@ -20,10 +20,10 @@ const SpeakerSessionDetail = () => {
   const fetchSessionData = async () => {
     try {
       const [sessionRes, questionsRes] = await Promise.all([
-        axios.get(`/api/sessions/${id}`, {
+        api.get(`/api/sessions/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get(`/api/speaker/sessions/${id}/questions`, {
+        api.get(`/api/speaker/sessions/${id}/questions`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ])
@@ -46,7 +46,7 @@ const SpeakerSessionDetail = () => {
 
     setUploading(true)
     try {
-      await axios.post(
+      await api.post(
         `/api/speaker/sessions/${id}/material`,
         formData,
         {

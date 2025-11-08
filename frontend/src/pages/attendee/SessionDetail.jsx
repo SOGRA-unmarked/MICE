@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import axios from 'axios'
+import api from '../../config/api'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
 
@@ -18,7 +18,7 @@ const SessionDetail = () => {
 
   const fetchSession = async () => {
     try {
-      const response = await axios.get(`/api/sessions/${id}`, {
+      const response = await api.get(`/api/sessions/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setSession(response.data.session)
@@ -35,7 +35,7 @@ const SessionDetail = () => {
 
     setSubmitting(true)
     try {
-      await axios.post(
+      await api.post(
         `/api/sessions/${id}/questions`,
         { questionText },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -54,11 +54,11 @@ const SessionDetail = () => {
   const handleToggleFavorite = async () => {
     try {
       if (session.isFavorited) {
-        await axios.delete(`/api/sessions/${id}/favorite`, {
+        await api.delete(`/api/sessions/${id}/favorite`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       } else {
-        await axios.post(
+        await api.post(
           `/api/sessions/${id}/favorite`,
           {},
           { headers: { Authorization: `Bearer ${token}` } }
@@ -72,7 +72,7 @@ const SessionDetail = () => {
 
   const handleDownloadMaterial = async () => {
     try {
-      const response = await axios.get(`/api/sessions/${id}/material`, {
+      const response = await api.get(`/api/sessions/${id}/material`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       })

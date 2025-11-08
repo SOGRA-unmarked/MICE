@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
+import api from '../../config/api'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
 
@@ -15,7 +15,7 @@ const SpeakerDashboard = () => {
 
   const fetchMySessions = async () => {
     try {
-      const response = await axios.get('/api/speaker/my-sessions', {
+      const response = await api.get('/api/speaker/my-sessions', {
         headers: { Authorization: `Bearer ${token}` }
       })
       setSessions(response.data.sessions)

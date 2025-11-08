@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Html5QrcodeScanner } from 'html5-qrcode'
-import axios from 'axios'
+import api from '../../config/api'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
 
@@ -30,7 +30,7 @@ const ScanQR = () => {
     setError(null)
 
     try {
-      const response = await axios.post(
+      const response = await api.post(
         '/api/sessions/check-in',
         { dynamicToken: decodedText },
         { headers: { Authorization: `Bearer ${token}` } }
