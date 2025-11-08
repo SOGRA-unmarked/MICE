@@ -1,0 +1,119 @@
+// Prisma Schema for MICE Event Management System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 테이블
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  name          String
+  role          Role      @default(ATTENDEE)
+  organization  String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  sessionsAsSpeaker Session[]          @relation("SpeakerSessions")
+  questions         Question[]
+  favorites         Favorite[]
+  attendanceLogs    AttendanceLog[]
+  uploadedMaterials SessionMaterial[]
+
+  @@map("users")
+}
+
+// 역할 ENUM
+enum Role {
+  ADMIN
+  SPEAKER
+  ATTENDEE
+}
+
+// 세션 테이블
+model Session {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String    @db.Text
+  startTime   DateTime  @map("start_time")
+  endTime     DateTime  @map("end_time")
+  speakerId   Int       @map("speaker_id")
+  track       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  speaker         User              @relation("SpeakerSessions", fields: [speakerId], references: [id], onDelete: Cascade)
+  materials       SessionMaterial[]
+  questions       Question[]
+  favorites       Favorite[]
+  attendanceLogs  AttendanceLog[]
+
+  @@map("sessions")
+}
+
+// 세션 자료 테이블
+model SessionMaterial {
+  id               Int      @id @default(autoincrement())
+  sessionId        Int      @map("session_id")
+  originalFileName String   @map("original_file_name")
+  storedFileName   String   @map("stored_file_name")
+  uploaderId       Int      @map("uploader_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  session  Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  uploader User    @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@map("session_materials")
+}
+
+// 질문 테이블
+model Question {
+  id           Int      @id @default(autoincrement())
+  sessionId    Int      @map("session_id")
+  attendeeId   Int      @map("attendee_id")
+  questionText String   @map("question_text") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  session  Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  attendee User    @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  @@map("questions")
+}
+
+// 즐겨찾기 테이블
+model Favorite {
+  userId    Int @map("user_id")
+  sessionId Int @map("session_id")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, sessionId])
+  @@map("favorites")
+}
+
+// 출석 로그 테이블
+model AttendanceLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  sessionId   Int      @map("session_id")
+  checkedInAt DateTime @default(now()) @map("checked_in_at")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+  @@map("attendance_logs")
+}
