@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth()
+  console.log('[ProtectedRoute] Rendering. Loading:', loading, 'User:', user);
 
   if (loading) {
     return (
