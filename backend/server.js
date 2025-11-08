@@ -17,6 +17,9 @@ const userRoutes = require('./routes/users');
 const app = express();
 const PORT = process.env.PORT || 5050;
 
+// Railway 프록시 신뢰 설정 (X-Forwarded-For 헤더 처리)
+app.set('trust proxy', true);
+
 // 보안 헤더 설정 (Helmet)
 app.use(helmet({
   contentSecurityPolicy: {

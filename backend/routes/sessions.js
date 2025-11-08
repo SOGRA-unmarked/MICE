@@ -294,20 +294,32 @@ router.get('/:id/material', authMiddleware, async (req, res) => {
 
     const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-    // 파일 전송 옵션에 헤더 포함
-    const options = {
-      headers: {
-        'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${material.originalFileName}"`,
-        'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'no-store, no-cache, must-revalidate, private'
+    // 보안 헤더 직접 설정
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${material.originalFileName}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+
+    console.log('Download material - Headers set:', {
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${material.originalFileName}"`,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private'
+    });
+
+    // 파일 스트림으로 전송 (헤더 유지)
+    const fileStream = fs.createReadStream(filePath);
+
+    fileStream.on('error', (error) => {
+      console.error('File stream error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: { message: 'Failed to read file' }
+        });
       }
-    };
+    });
 
-    console.log('Download material - Setting headers:', options.headers);
-
-    // 파일 전송
-    res.sendFile(filePath, options);
+    fileStream.pipe(res);
   } catch (error) {
     console.error('Download material error:', error);
     res.status(500).json({
