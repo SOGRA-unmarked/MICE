@@ -390,4 +390,116 @@ router.get('/sessions/:id/attendance', authMiddleware, isAdmin, async (req, res)
   }
 });
 
+/**
+ * POST /api/admin/event-entry
+ * 참가자 입장 체크인 (관리자가 참가자의 QR을 스캔)
+ */
+router.post('/event-entry', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        error: { message: 'User ID is required' }
+      });
+    }
+
+    // 사용자 존재 확인
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: { message: 'User not found' }
+      });
+    }
+
+    // 이미 입장했는지 확인
+    const existingEntry = await prisma.eventEntry.findUnique({
+      where: { userId: parseInt(userId) }
+    });
+
+    if (existingEntry) {
+      return res.status(200).json({
+        message: 'Already checked in',
+        alreadyCheckedIn: true,
+        entryTime: existingEntry.enteredAt,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          organization: user.organization
+        }
+      });
+    }
+
+    // 새로운 입장 기록 생성
+    const eventEntry = await prisma.eventEntry.create({
+      data: {
+        userId: parseInt(userId)
+      }
+    });
+
+    res.status(201).json({
+      message: 'Check-in successful',
+      alreadyCheckedIn: false,
+      entryTime: eventEntry.enteredAt,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        organization: user.organization
+      }
+    });
+  } catch (error) {
+    console.error('Event entry error:', error);
+    res.status(500).json({
+      error: { message: 'Failed to process event entry' }
+    });
+  }
+});
+
+/**
+ * GET /api/admin/event-entry/stats
+ * 행사장 입장 통계 조회
+ */
+router.get('/event-entry/stats', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const totalEntries = await prisma.eventEntry.count();
+    const totalAttendees = await prisma.user.count({
+      where: { role: 'ATTENDEE' }
+    });
+
+    const entries = await prisma.eventEntry.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            organization: true,
+            role: true
+          }
+        }
+      },
+      orderBy: {
+        enteredAt: 'desc'
+      }
+    });
+
+    res.json({
+      totalEntries,
+      totalAttendees,
+      checkInRate: totalAttendees > 0 ? ((totalEntries / totalAttendees) * 100).toFixed(2) : 0,
+      entries
+    });
+  } catch (error) {
+    console.error('Get event entry stats error:', error);
+    res.status(500).json({
+      error: { message: 'Failed to fetch event entry stats' }
+    });
+  }
+});
+
 module.exports = router;

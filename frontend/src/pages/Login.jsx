@@ -80,13 +80,6 @@ const Login = () => {
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
-
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>테스트 계정:</p>
-          <p>Admin: admin@mice.com / admin123</p>
-          <p>Speaker: speaker@mice.com / speaker123</p>
-          <p>Attendee: attendee@mice.com / attendee123</p>
-        </div>
       </div>
     </div>
   )

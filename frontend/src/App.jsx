@@ -14,6 +14,7 @@ import AdminDashboard from './pages/admin/Dashboard'
 import AdminUsers from './pages/admin/Users'
 import AdminSessions from './pages/admin/Sessions'
 import AdminQRDisplay from './pages/admin/QRDisplay'
+import AdminEventEntry from './pages/admin/EventEntry'
 
 function App() {
   return (
@@ -76,6 +77,11 @@ function App() {
           <Route path="/admin/sessions/:id/qr-display" element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <AdminQRDisplay />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/event-entry" element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <AdminEventEntry />
             </ProtectedRoute>
           } />
 

@@ -17,9 +17,13 @@ const qrTokenCache = new NodeCache({ stdTTL: 60 });
 /**
  * GET /api/sessions
  * 전체 세션 목록 조회 (모든 인증된 사용자)
+ * Query params: favoritesOnly=true (즐겨찾기만 조회)
  */
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    const userId = req.user.id;
+    const favoritesOnly = req.query.favoritesOnly === 'true';
+
     const sessions = await prisma.session.findMany({
       include: {
         speaker: {
@@ -28,6 +32,10 @@ router.get('/', authMiddleware, async (req, res) => {
             name: true,
             organization: true
           }
+        },
+        favorites: {
+          where: { userId },
+          select: { userId: true }
         },
         _count: {
           select: {
@@ -41,7 +49,19 @@ router.get('/', authMiddleware, async (req, res) => {
       }
     });
 
-    res.json({ sessions });
+    // isFavorited 필드 추가
+    let sessionsWithFavorites = sessions.map(session => ({
+      ...session,
+      isFavorited: session.favorites.length > 0,
+      favorites: undefined // favorites 배열은 제거
+    }));
+
+    // 즐겨찾기만 필터링
+    if (favoritesOnly) {
+      sessionsWithFavorites = sessionsWithFavorites.filter(s => s.isFavorited);
+    }
+
+    res.json({ sessions: sessionsWithFavorites });
   } catch (error) {
     console.error('Get sessions error:', error);
     res.status(500).json({

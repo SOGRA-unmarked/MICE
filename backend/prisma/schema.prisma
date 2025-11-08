@@ -26,6 +26,7 @@ model User {
   favorites         Favorite[]
   attendanceLogs    AttendanceLog[]
   uploadedMaterials SessionMaterial[]
+  eventEntries      EventEntry[]
 
   @@map("users")
 }
@@ -116,4 +117,17 @@ model AttendanceLog {
 
   @@unique([userId, sessionId])
   @@map("attendance_logs")
+}
+
+// 행사장 입장 로그 테이블 (학회 전체 참가 인원 추적)
+model EventEntry {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  enteredAt   DateTime @default(now()) @map("entered_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("event_entries")
 }

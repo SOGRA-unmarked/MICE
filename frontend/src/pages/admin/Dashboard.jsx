@@ -82,7 +82,7 @@ const AdminDashboard = () => {
         {/* 빠른 액션 */}
         <div className="card">
           <h2 className="text-2xl font-bold mb-6">빠른 액션</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Link
               to="/admin/users"
               className="p-6 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
@@ -100,6 +100,16 @@ const AdminDashboard = () => {
               <h3 className="text-xl font-semibold mb-2">📅 세션 관리</h3>
               <p className="text-gray-600">
                 세션 생성, 수정, 삭제 및 동적 QR 표시
+              </p>
+            </Link>
+
+            <Link
+              to="/admin/event-entry"
+              className="p-6 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+            >
+              <h3 className="text-xl font-semibold mb-2">🎫 행사장 입장 관리</h3>
+              <p className="text-gray-600">
+                참가자 QR 스캔 및 입장 현황 확인
               </p>
             </Link>
           </div>

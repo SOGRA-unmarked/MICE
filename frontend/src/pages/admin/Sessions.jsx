@@ -8,6 +8,8 @@ const AdminSessions = () => {
   const [sessions, setSessions] = useState([])
   const [users, setUsers] = useState([])
   const [showModal, setShowModal] = useState(false)
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false)
+  const [attendanceData, setAttendanceData] = useState(null)
   const [editingSession, setEditingSession] = useState(null)
   const [formData, setFormData] = useState({
     title: '',
@@ -130,6 +132,32 @@ const AdminSessions = () => {
     })
   }
 
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
+  const handleViewAttendance = async (session) => {
+    try {
+      const response = await api.get(`/api/admin/sessions/${session.id}/attendance`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setAttendanceData({
+        session,
+        ...response.data
+      })
+      setShowAttendanceModal(true)
+    } catch (error) {
+      alert(error.response?.data?.error?.message || '참석 현황 조회에 실패했습니다.')
+    }
+  }
+
   if (loading) {
     return (
       <>
@@ -192,6 +220,12 @@ const AdminSessions = () => {
                 >
                   🔲 동적 QR 표시
                 </Link>
+                <button
+                  onClick={() => handleViewAttendance(session)}
+                  className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  👥 참석 현황 ({session._count.attendanceLogs}명)
+                </button>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => openEditModal(session)}
@@ -218,7 +252,88 @@ const AdminSessions = () => {
         )}
       </div>
 
-      {/* 모달 */}
+      {/* 참석 현황 모달 */}
+      {showAttendanceModal && attendanceData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-8 max-w-4xl w-full m-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">
+                참석 현황: {attendanceData.session.title}
+              </h2>
+              <button
+                onClick={() => setShowAttendanceModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-lg">
+                총 참석 인원: <strong className="text-blue-600">{attendanceData.totalAttendees}명</strong>
+              </p>
+            </div>
+
+            {attendanceData.attendanceLogs.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                아직 참석한 인원이 없습니다.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        이름
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        이메일
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        소속
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        체크인 시각
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {attendanceData.attendanceLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {log.user.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {log.user.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {log.user.organization || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDateTime(log.checkedInAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowAttendanceModal(false)}
+                className="btn-secondary"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 세션 생성/수정 모달 */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-8 max-w-2xl w-full m-4">
