@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import api from '../config/api'
 
 const AuthContext = createContext(null)
 
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
 
   const loadUser = async () => {
     try {
-      const response = await axios.get('/api/users/me', {
+      const response = await api.get('/api/users/me', {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('/api/auth/login', { email, password })
+      const response = await api.post('/api/auth/login', { email, password })
       const { token: newToken, user: newUser } = response.data
 
       localStorage.setItem('token', newToken)

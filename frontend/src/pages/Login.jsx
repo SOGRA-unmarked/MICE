@@ -81,11 +81,6 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="mt-4 p-2 bg-gray-100 border rounded">
-          <p className="text-xs text-gray-500">
-            [Debug Info] VITE_API_URL: {import.meta.env.VITE_API_URL || 'NOT SET'}
-          </p>
-        </div>
         <div className="mt-6 text-center text-sm text-gray-600">
           <p>테스트 계정:</p>
           <p>Admin: admin@mice.com / admin123</p>
