@@ -236,37 +236,70 @@ JWT 토큰을 저장하는 쿠키에 `sameSite: 'strict'` 속성을 부여했습
 ## 9. 행사장 입장 관리 보안
 
 ### 문제점
-참가자의 QR 코드가 공유되거나 복제되어 무단 입장이 발생할 수 있으며, 동일 참가자가 여러 번 입장 체크를 받을 수 있습니다.
+참가자의 QR 코드가 공유되거나 복제되어 무단 입장이 발생할 수 있으며, 동일 참가자가 여러 번 입장 체크를 받을 수 있습니다. 또한 공격자가 무차별 대입 공격으로 유효한 사용자 ID를 찾거나, 타이밍 공격으로 사용자 존재 여부를 파악할 수 있습니다.
 
 ### 해결 방안
-행사장 입장 시스템에 여러 단계의 검증 및 중복 방지 메커니즘을 구현했습니다.
+행사장 입장 시스템에 여러 단계의 검증 및 보안 메커니즘을 구현했습니다.
 
-1.  **고유 사용자 ID 검증**: 참가자의 QR 코드에는 데이터베이스의 고유 사용자 ID가 포함되어 있으며, 스캔 시 해당 ID의 유효성을 검증합니다.
-2.  **중복 입장 방지**: 데이터베이스에 `EventEntry` 테이블의 `userId`에 대한 `unique` 제약조건을 설정하여 동일 사용자의 중복 입장을 원천적으로 차단합니다.
-3.  **입장 이력 추적**: 모든 입장 시도를 타임스탬프와 함께 기록하여 감사 추적(audit trail)이 가능합니다.
-4.  **실시간 피드백**: 이미 입장한 참가자가 재스캔될 경우, 관리자에게 "Already checked in" 메시지를 표시하여 즉시 인지할 수 있도록 합니다.
+1.  **입력 검증 강화**: `express-validator`를 사용하여 userId가 양의 정수인지 검증합니다. 음수, 0, 문자열 등 잘못된 입력을 즉시 거부합니다.
+2.  **역할 기반 필터링**: ATTENDEE 역할을 가진 사용자만 입장이 허용됩니다. ADMIN이나 SPEAKER의 QR 코드는 거부됩니다.
+3.  **에러 메시지 일반화**: 사용자를 찾을 수 없거나 역할이 적절하지 않은 경우, 동일하게 "Invalid QR code" 메시지를 반환하여 정보 노출을 방지합니다.
+4.  **타이밍 공격 방지**: 모든 요청이 최소 100ms의 처리 시간을 갖도록 하여, 사용자 존재 여부를 응답 시간으로 추측하는 것을 방지합니다.
+5.  **Rate Limiting**: 1분당 최대 30회 스캔으로 제한하여 무차별 대입 공격과 DoS 공격을 방지합니다.
+6.  **중복 입장 방지**: 데이터베이스에 `EventEntry` 테이블의 `userId`에 대한 `unique` 제약조건을 설정하여 동일 사용자의 중복 입장을 원천적으로 차단합니다.
+7.  **보안 로깅**: Winston 로거를 사용하여 모든 입장 시도(성공/실패), 관리자 ID, IP 주소, 타임스탬프를 기록하여 감사 추적(audit trail)이 가능합니다.
+8.  **실시간 피드백**: 이미 입장한 참가자가 재스캔될 경우, 관리자에게 "Already checked in" 메시지를 표시하여 즉시 인지할 수 있도록 합니다.
 
--   **적용된 파일**: `backend/routes/admin.js`, `backend/prisma/schema.prisma`
+-   **적용된 파일**: `backend/routes/admin.js`, `backend/middleware/validators.js`, `backend/middleware/rateLimiter.js`
 -   **상세 코드**:
     ```javascript
     // backend/routes/admin.js
-    // 이미 입장했는지 확인
-    const existingEntry = await prisma.eventEntry.findUnique({
-      where: { userId: parseInt(userId) }
-    });
+    router.post('/event-entry', authMiddleware, isAdmin, qrScanLimiter, eventEntryValidator, async (req, res) => {
+      const startTime = Date.now();
 
-    if (existingEntry) {
-      return res.status(200).json({
-        message: 'Already checked in',
-        alreadyCheckedIn: true,
-        entryTime: existingEntry.enteredAt,
-        // ...
+      const { userId } = req.body;
+
+      // 사용자 존재 및 역할 확인
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, email: true, organization: true, role: true }
       });
-    }
 
-    // 새로운 입장 기록 생성
-    const eventEntry = await prisma.eventEntry.create({
-      data: { userId: parseInt(userId) }
+      // 타이밍 공격 방지: 최소 100ms 보장
+      const minDelay = 100;
+      const elapsed = Date.now() - startTime;
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
+
+      if (!user || user.role !== 'ATTENDEE') {
+        logger.warn('Event entry failed', { userId, adminId: req.user.id, ip: req.ip });
+        return res.status(400).json({
+          error: { message: 'Invalid QR code' }  // 일반화된 메시지
+        });
+      }
+
+      // 중복 입장 확인
+      const existingEntry = await prisma.eventEntry.findUnique({
+        where: { userId }
+      });
+
+      if (existingEntry) {
+        logger.info('Already checked in', { userId, userName: user.name });
+        return res.status(200).json({
+          message: 'Already checked in',
+          alreadyCheckedIn: true,
+          // ...
+        });
+      }
+
+      // 새로운 입장 기록
+      const eventEntry = await prisma.eventEntry.create({
+        data: { userId }
+      });
+
+      logger.info('Event entry successful', { userId, userName: user.name, adminId: req.user.id });
+      // ...
     });
     ```
 
@@ -297,39 +330,74 @@ JWT 토큰을 저장하는 쿠키에 `sameSite: 'strict'` 속성을 부여했습
     }, [id, autoRefresh, questions.length]);
     ```
 
-## 11. QR 스캔 보안
+## 11. QR 스캔 보안 (프론트엔드)
 
 ### 문제점
-관리자가 참가자의 QR 코드를 스캔할 때, 유효하지 않은 QR 코드나 조작된 데이터가 입력될 수 있습니다.
+관리자가 참가자의 QR 코드를 스캔할 때, 유효하지 않은 QR 코드나 조작된 데이터가 입력될 수 있습니다. 또한 빠른 연속 스캔으로 인한 중복 처리가 발생할 수 있습니다.
 
 ### 해결 방안
-QR 스캔 프로세스에 여러 단계의 검증을 추가했습니다.
+프론트엔드 QR 스캔 프로세스에 여러 단계의 검증과 보호 메커니즘을 추가했습니다.
 
 1.  **데이터 타입 검증**: 스캔된 QR 코드 값이 숫자형 사용자 ID인지 확인하고, 유효하지 않은 형식은 즉시 거부합니다.
-2.  **사용자 존재 확인**: 데이터베이스에서 해당 ID의 사용자가 실제로 존재하는지 확인합니다.
-3.  **중복 스캔 방지**: 클라이언트 측에서 `isProcessing` 상태를 사용하여 처리 중일 때 추가 스캔을 무시합니다.
-4.  **타임아웃 처리**: 3초 후 스캔 결과를 자동으로 제거하여 다음 스캔을 준비합니다.
+2.  **중복 스캔 방지**: 클라이언트 측에서 `isProcessing` 상태를 사용하여 처리 중일 때 추가 스캔을 무시합니다. 이를 통해 동일 QR을 빠르게 여러 번 스캔하는 것을 방지합니다.
+3.  **타임아웃 처리**: 3초 후 스캔 결과를 자동으로 제거하여 다음 스캔을 준비합니다.
+4.  **에러 처리**: API 응답 에러를 사용자에게 표시하여 문제를 즉시 인지할 수 있도록 합니다.
+5.  **Rate Limit 피드백**: 백엔드의 Rate Limiting을 초과하면 에러 메시지가 표시됩니다.
 
 -   **적용된 파일**: `frontend/src/pages/admin/EventEntry.jsx`
 -   **상세 코드**:
     ```javascript
     const onScanSuccess = async (decodedText) => {
-      if (isProcessing) return; // 중복 방지
-      setIsProcessing(true);
-
-      const userId = parseInt(decodedText);
-      if (isNaN(userId)) {
-        // 유효하지 않은 형식 거부
-        setLastScanResult({
-          success: false,
-          message: `유효하지 않은 QR 코드입니다.`
-        });
+      // 중복 처리 방지
+      if (isProcessing) {
+        console.log('이미 처리 중입니다. 스캔 무시.');
         return;
       }
+      setIsProcessing(true);
 
-      // API 호출 및 검증
-      const response = await api.post('/api/admin/event-entry', { userId });
-      // ...
+      try {
+        // 데이터 타입 검증
+        const userId = parseInt(decodedText);
+        if (isNaN(userId)) {
+          setLastScanResult({
+            success: false,
+            message: `유효하지 않은 QR 코드입니다. (값: ${decodedText})`
+          });
+          setTimeout(() => {
+            setLastScanResult(null);
+            setIsProcessing(false);
+          }, 3000);
+          return;
+        }
+
+        // API 호출
+        const response = await api.post('/api/admin/event-entry', { userId });
+
+        // 성공 피드백
+        setLastScanResult({
+          success: true,
+          alreadyCheckedIn: response.data.alreadyCheckedIn,
+          message: response.data.message,
+          user: response.data.user,
+          entryTime: response.data.entryTime
+        });
+
+        // 3초 후 자동 제거
+        setTimeout(() => {
+          setLastScanResult(null);
+          setIsProcessing(false);
+        }, 3000);
+      } catch (error) {
+        // 에러 피드백
+        setLastScanResult({
+          success: false,
+          message: error.response?.data?.error?.message || '입장 처리 실패'
+        });
+        setTimeout(() => {
+          setLastScanResult(null);
+          setIsProcessing(false);
+        }, 3000);
+      }
     };
     ```
 

@@ -30,4 +30,24 @@ const questionLimiter = rateLimit({
   }
 });
 
-module.exports = { apiLimiter, authLimiter, questionLimiter };
+// QR 스캔용 Rate Limiter (행사장 입장)
+const qrScanLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1분
+  max: 30, // 1분당 최대 30번 스캔 (관리자가 빠르게 스캔할 수 있도록)
+  message: {
+    error: { message: 'Too many scan attempts, please slow down.' }
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// 통계 조회용 Rate Limiter
+const statsLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1분
+  max: 10, // 1분당 최대 10번 조회
+  message: {
+    error: { message: 'Too many requests, please try again later.' }
+  }
+});
+
+module.exports = { apiLimiter, authLimiter, questionLimiter, qrScanLimiter, statsLimiter };

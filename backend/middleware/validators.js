@@ -90,9 +90,19 @@ const sessionValidator = [
   validate
 ];
 
+// 행사장 입장 Validator
+const eventEntryValidator = [
+  body('userId')
+    .notEmpty().withMessage('User ID is required')
+    .isInt({ min: 1 }).withMessage('User ID must be a positive integer')
+    .toInt(),
+  validate
+];
+
 module.exports = {
   registerValidator,
   loginValidator,
   questionValidator,
-  sessionValidator
+  sessionValidator,
+  eventEntryValidator
 };

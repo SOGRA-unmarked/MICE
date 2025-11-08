@@ -5,6 +5,9 @@ const authMiddleware = require('../middleware/auth');
 const { isAdmin } = require('../middleware/rbac');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const { eventEntryValidator } = require('../middleware/validators');
+const { qrScanLimiter, statsLimiter } = require('../middleware/rateLimiter');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -394,33 +397,69 @@ router.get('/sessions/:id/attendance', authMiddleware, isAdmin, async (req, res)
  * POST /api/admin/event-entry
  * 참가자 입장 체크인 (관리자가 참가자의 QR을 스캔)
  */
-router.post('/event-entry', authMiddleware, isAdmin, async (req, res) => {
+router.post('/event-entry', authMiddleware, isAdmin, qrScanLimiter, eventEntryValidator, async (req, res) => {
+  const startTime = Date.now();
+
   try {
     const { userId } = req.body;
+    const adminId = req.user.id;
 
-    if (!userId) {
+    // 사용자 존재 및 역할 확인
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        organization: true,
+        role: true
+      }
+    });
+
+    // 최소 지연 시간 보장 (타이밍 공격 방지)
+    const minDelay = 100; // 100ms
+    const elapsed = Date.now() - startTime;
+    if (elapsed < minDelay) {
+      await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+    }
+
+    if (!user) {
+      logger.warn('Event entry failed - user not found', {
+        userId,
+        adminId,
+        ip: req.ip
+      });
       return res.status(400).json({
-        error: { message: 'User ID is required' }
+        error: { message: 'Invalid QR code' }
       });
     }
 
-    // 사용자 존재 확인
-    const user = await prisma.user.findUnique({
-      where: { id: parseInt(userId) }
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        error: { message: 'User not found' }
+    // ATTENDEE 역할만 입장 허용
+    if (user.role !== 'ATTENDEE') {
+      logger.warn('Event entry rejected - invalid role', {
+        userId,
+        userRole: user.role,
+        adminId,
+        ip: req.ip
+      });
+      return res.status(400).json({
+        error: { message: 'Invalid QR code' }
       });
     }
 
     // 이미 입장했는지 확인
     const existingEntry = await prisma.eventEntry.findUnique({
-      where: { userId: parseInt(userId) }
+      where: { userId }
     });
 
     if (existingEntry) {
+      logger.info('Event entry - already checked in', {
+        userId,
+        userName: user.name,
+        adminId,
+        originalEntryTime: existingEntry.enteredAt
+      });
+
       return res.status(200).json({
         message: 'Already checked in',
         alreadyCheckedIn: true,
@@ -437,8 +476,15 @@ router.post('/event-entry', authMiddleware, isAdmin, async (req, res) => {
     // 새로운 입장 기록 생성
     const eventEntry = await prisma.eventEntry.create({
       data: {
-        userId: parseInt(userId)
+        userId
       }
+    });
+
+    logger.info('Event entry successful', {
+      userId,
+      userName: user.name,
+      adminId,
+      entryTime: eventEntry.enteredAt
     });
 
     res.status(201).json({
@@ -453,7 +499,13 @@ router.post('/event-entry', authMiddleware, isAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Event entry error:', error);
+    logger.error('Event entry error', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.body.userId,
+      adminId: req.user?.id
+    });
+
     res.status(500).json({
       error: { message: 'Failed to process event entry' }
     });
@@ -464,7 +516,7 @@ router.post('/event-entry', authMiddleware, isAdmin, async (req, res) => {
  * GET /api/admin/event-entry/stats
  * 행사장 입장 통계 조회
  */
-router.get('/event-entry/stats', authMiddleware, isAdmin, async (req, res) => {
+router.get('/event-entry/stats', authMiddleware, isAdmin, statsLimiter, async (req, res) => {
   try {
     const totalEntries = await prisma.eventEntry.count();
     const totalAttendees = await prisma.user.count({
@@ -488,6 +540,12 @@ router.get('/event-entry/stats', authMiddleware, isAdmin, async (req, res) => {
       }
     });
 
+    logger.info('Event entry stats requested', {
+      adminId: req.user.id,
+      totalEntries,
+      totalAttendees
+    });
+
     res.json({
       totalEntries,
       totalAttendees,
@@ -495,7 +553,11 @@ router.get('/event-entry/stats', authMiddleware, isAdmin, async (req, res) => {
       entries
     });
   } catch (error) {
-    console.error('Get event entry stats error:', error);
+    logger.error('Get event entry stats error', {
+      error: error.message,
+      adminId: req.user?.id
+    });
+
     res.status(500).json({
       error: { message: 'Failed to fetch event entry stats' }
     });
