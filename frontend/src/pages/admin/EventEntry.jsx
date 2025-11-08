@@ -12,6 +12,7 @@ const EventEntry = () => {
   })
   const [lastScanResult, setLastScanResult] = useState(null)
   const [scanner, setScanner] = useState(null)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
     fetchStats()
@@ -21,7 +22,13 @@ const EventEntry = () => {
     if (scanning) {
       const html5QrcodeScanner = new Html5QrcodeScanner(
         'qr-reader',
-        { fps: 10, qrbox: 250 },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+          disableFlip: false,
+          showTorchButtonIfSupported: true
+        },
         false
       )
 
@@ -44,19 +51,36 @@ const EventEntry = () => {
   }
 
   const onScanSuccess = async (decodedText) => {
+    // 이미 처리 중이면 무시
+    if (isProcessing) {
+      console.log('이미 처리 중입니다. 스캔 무시.')
+      return
+    }
+
+    setIsProcessing(true)
+
     try {
+      console.log('QR 스캔 성공:', decodedText) // 디버깅용
+
       // QR 코드에서 userId 추출 (참가자의 MyPass QR은 userId를 담고 있음)
       const userId = parseInt(decodedText)
 
       if (isNaN(userId)) {
+        console.log('유효하지 않은 userId:', decodedText) // 디버깅용
         setLastScanResult({
           success: false,
-          message: '유효하지 않은 QR 코드입니다.',
+          message: `유효하지 않은 QR 코드입니다. (값: ${decodedText})`,
           timestamp: new Date()
         })
+
+        setTimeout(() => {
+          setLastScanResult(null)
+          setIsProcessing(false)
+        }, 3000)
         return
       }
 
+      console.log('API 호출 중... userId:', userId) // 디버깅용
       const response = await api.post('/admin/event-entry', { userId })
 
       setLastScanResult({
@@ -71,11 +95,13 @@ const EventEntry = () => {
       // 통계 새로고침
       fetchStats()
 
-      // 스캔 결과 3초 후 자동 제거
+      // 스캔 결과 3초 후 자동 제거하고 다시 스캔 가능하게
       setTimeout(() => {
         setLastScanResult(null)
+        setIsProcessing(false)
       }, 3000)
     } catch (error) {
+      console.error('입장 처리 에러:', error)
       setLastScanResult({
         success: false,
         message: error.response?.data?.error?.message || '입장 처리 실패',
@@ -84,16 +110,22 @@ const EventEntry = () => {
 
       setTimeout(() => {
         setLastScanResult(null)
+        setIsProcessing(false)
       }, 3000)
     }
   }
 
   const onScanError = (error) => {
-    // QR 코드가 감지되지 않을 때는 에러 무시
-    if (error.includes('NotFoundException')) {
-      return
+    // QR 코드 스캔 중 발생하는 일반적인 에러는 무시 (콘솔에도 표시 안 함)
+    // 이런 에러들은 스캔 중 정상적으로 발생하는 것들입니다:
+    // - "NotFoundException" - QR 코드가 아직 감지되지 않음
+    // - "No MultiFormat Readers" - QR 형식 감지 중
+    // - "No barcode or QR code detected" - 스캔 대기 중
+
+    // 실제 문제가 있는 경우에만 로그 (권한 문제 등)
+    if (error && typeof error === 'string' && error.includes('NotAllowedError')) {
+      console.error('카메라 권한이 거부되었습니다:', error)
     }
-    console.error('Scan error:', error)
   }
 
   const toggleScanning = () => {
@@ -117,6 +149,12 @@ const EventEntry = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">행사장 입장 관리</h1>
         <p className="text-gray-600">참가자의 QR 코드를 스캔하여 입장을 체크하세요</p>
+        <div className="mt-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <p className="text-sm text-yellow-800">
+            <strong>💡 사용 방법:</strong> 참가자에게 "나의 비표" 페이지의 QR 코드를 보여달라고 요청하세요.
+            카메라에 QR 코드를 비추면 자동으로 스캔됩니다.
+          </p>
+        </div>
       </div>
 
       {/* 통계 카드 */}
@@ -154,6 +192,11 @@ const EventEntry = () => {
         {scanning && (
           <div className="mb-4">
             <div id="qr-reader" className="w-full"></div>
+            {isProcessing && (
+              <div className="mt-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded text-center">
+                처리 중...
+              </div>
+            )}
           </div>
         )}
 
