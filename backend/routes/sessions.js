@@ -282,16 +282,17 @@ router.get('/:id/material', authMiddleware, async (req, res) => {
       });
     }
 
-    // 보안 헤더 설정
-    // Content-Disposition과 Content-Type은 res.download에서 자동으로 설정합니다.
-    // X-Content-Type-Options는 helmet 미들웨어를 통해 전역으로 설정됩니다.
+    // 보안 헤더를 수동으로 명확하게 설정합니다.
+    res.setHeader('Content-Disposition', `attachment; filename="${material.originalFileName}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
-    res.download(filePath, material.originalFileName, (err) => {
+    // res.sendFile을 사용하여 파일을 전송합니다. Content-Type은 파일 확장자를 기반으로 자동 설정됩니다.
+    res.sendFile(filePath, (err) => {
       if (err) {
-        console.error('File download error:', err);
+        console.error('File send error:', err);
         if (!res.headersSent) {
-          res.status(500).json({ error: { message: 'Error downloading file' } });
+          res.status(500).json({ error: { message: 'Error sending file' } });
         }
       }
     });

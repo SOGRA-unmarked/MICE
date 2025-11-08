@@ -69,6 +69,14 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 모든 응답에 X-Content-Type-Options: nosniff 헤더를 강제로 추가합니다.
+app.use((req, res, next) => {
+  if (!res.headersSent) {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  }
+  next();
+});
+
 // Rate Limiting - 모든 API 엔드포인트에 적용
 app.use('/api/', apiLimiter);
 

@@ -77,13 +77,26 @@ const SessionDetail = () => {
         responseType: 'blob'
       })
 
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', 'material.pdf')
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
+      const header = response.headers['content-disposition'];
+      let filename = 'material.pdf'; // fallback
+      if (header) {
+        const parts = header.split(';');
+        for (let part of parts) {
+          if (part.trim().startsWith('filename=')) {
+            filename = part.split('=')[1].trim().replace(/"/g, '');
+            break;
+          }
+        }
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      // 서버에서 받은 파일명을 사용하고, URI 인코딩된 문자를 디코딩합니다.
+      link.setAttribute('download', decodeURIComponent(filename));
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (error) {
       if (error.response?.status === 404) {
         alert('발표 자료가 아직 업로드되지 않았습니다.')
