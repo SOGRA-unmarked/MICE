@@ -292,20 +292,22 @@ router.get('/:id/material', authMiddleware, async (req, res) => {
       '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     };
 
-    // Content-Type 설정
-    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-    // Content-Disposition: attachment (강제 다운로드, XSS 방지)
-    res.setHeader('Content-Disposition', `attachment; filename="${material.originalFileName}"`);
+    // 파일 전송 옵션에 헤더 포함
+    const options = {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${material.originalFileName}"`,
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private'
+      }
+    };
 
-    // X-Content-Type-Options: nosniff (MIME 스니핑 방지)
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-
-    // Cache-Control (캐시 방지 - 민감한 파일)
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    console.log('Download material - Setting headers:', options.headers);
 
     // 파일 전송
-    res.sendFile(filePath);
+    res.sendFile(filePath, options);
   } catch (error) {
     console.error('Download material error:', error);
     res.status(500).json({
