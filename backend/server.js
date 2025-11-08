@@ -14,7 +14,13 @@ const app = express();
 const PORT = process.env.PORT || 5050;
 
 // Middleware
-app.use(cors());
+// CORS 설정 - 배포 환경에서는 FRONTEND_URL 환경 변수 사용
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

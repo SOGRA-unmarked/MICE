@@ -67,7 +67,20 @@ MICE/
 └── README.md
 ```
 
-## 설치 및 실행
+## 🚀 배포
+
+프로젝트가 **Vercel + Railway**에 배포되어 있습니다:
+
+- **Frontend (Vercel)**: `https://mice.vercel.app`
+- **Backend (Railway)**: `https://mice-api.up.railway.app`
+
+### 배포 방법
+- [배포 가이드](./DEPLOYMENT_GUIDE.md) - 상세한 배포 가이드
+- [배포 체크리스트](./DEPLOYMENT_CHECKLIST.md) - 단계별 체크리스트
+
+---
+
+## 설치 및 실행 (로컬)
 
 ### 사전 요구사항
 - Node.js 18+
