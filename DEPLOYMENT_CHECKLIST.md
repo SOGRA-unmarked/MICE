@@ -113,9 +113,23 @@ Vercel URL이 확정되었으므로:
 
 ### 테스트 사용자 생성
 
+**먼저 Backend API URL 확인:**
+
+1. Railway Dashboard → **Backend 서비스** 클릭 (PostgreSQL ❌, Backend ✅)
+2. **Settings** → **Public Networking** → **Generate Domain**
+3. URL 복사 (예: `https://web-production-xxxx.up.railway.app`)
+
+⚠️ **주의**: `postgres-production-xxxx`는 DB URL입니다. Backend URL이 아닙니다!
+
+---
+
+**방법 1: 터미널에서 curl 사용 (추천)**
+
+본인의 **Mac 터미널**을 열고:
+
 ```bash
-# Backend URL을 본인 것으로 변경
-BACKEND_URL="https://mice-api.up.railway.app"
+# ⚠️ YOUR_BACKEND_URL을 위에서 복사한 Backend URL로 변경하세요!
+BACKEND_URL="YOUR_BACKEND_URL"
 
 # Admin 계정
 curl -X POST $BACKEND_URL/api/auth/register \
@@ -148,9 +162,16 @@ curl -X POST $BACKEND_URL/api/auth/register \
   }'
 ```
 
-- [ ] Admin 계정 생성 성공
+**방법 2: Postman 사용**
+- Postman 다운로드: https://www.postman.com/downloads/
+- POST 요청으로 동일한 내용 전송
+
+체크리스트:
+- [ ] Admin 계정 생성 성공 (응답: `{"message":"User created successfully"}`)
 - [ ] Speaker 계정 생성 성공
 - [ ] Attendee 계정 생성 성공
+
+> 💡 **어디서 실행?** 본인 컴퓨터의 터미널 (Railway 사이트에서 실행하는 게 아닙니다!)
 
 ---
 

@@ -214,11 +214,31 @@ Railway Backend 서비스에서:
 
 ### 5-3. 초기 사용자 생성
 
-Railway Backend에 직접 API 호출:
+배포된 Backend API에 사용자를 생성해야 합니다. 3가지 방법이 있습니다.
+
+#### 방법 1: 터미널에서 curl 실행 (추천, 가장 빠름)
+
+**먼저 Backend API URL을 확인하세요:**
+
+1. Railway Dashboard → **Backend 서비스 클릭** (PostgreSQL 서비스 ❌, Backend 서비스 ✅)
+2. **Settings** 탭 → **Public Networking** 섹션
+3. **Generate Domain** 버튼 클릭 (아직 안 했다면)
+4. 생성된 URL 복사 (예: `https://web-production-xxxx.up.railway.app`)
+
+⚠️ **중요**:
+- `postgres-production-xxxx.up.railway.app` ← 이건 **데이터베이스 URL**입니다 (curl에 사용 ❌)
+- `https://web-production-xxxx.up.railway.app` ← 이게 **Backend API URL**입니다 (curl에 사용 ✅)
+
+---
+
+**Mac/Linux 터미널** 또는 **Windows PowerShell**에서 실행:
 
 ```bash
-# Railway Backend URL 사용 (본인 URL로 변경)
-curl -X POST https://mice-api.up.railway.app/api/auth/register \
+# ⚠️ YOUR_BACKEND_URL을 위에서 복사한 Backend URL로 변경하세요!
+# 예: https://web-production-xxxx.up.railway.app
+
+# Admin 계정
+curl -X POST YOUR_BACKEND_URL/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@mice.com",
@@ -227,7 +247,8 @@ curl -X POST https://mice-api.up.railway.app/api/auth/register \
     "role": "ADMIN"
   }'
 
-curl -X POST https://mice-api.up.railway.app/api/auth/register \
+# Speaker 계정
+curl -X POST YOUR_BACKEND_URL/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "speaker@mice.com",
@@ -236,7 +257,8 @@ curl -X POST https://mice-api.up.railway.app/api/auth/register \
     "role": "SPEAKER"
   }'
 
-curl -X POST https://mice-api.up.railway.app/api/auth/register \
+# Attendee 계정
+curl -X POST YOUR_BACKEND_URL/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "attendee@mice.com",
@@ -245,6 +267,42 @@ curl -X POST https://mice-api.up.railway.app/api/auth/register \
     "role": "ATTENDEE"
   }'
 ```
+
+**성공 시 응답**:
+```json
+{
+  "message": "User created successfully",
+  "user": {
+    "id": 1,
+    "email": "admin@mice.com",
+    "name": "관리자",
+    "role": "ADMIN"
+  }
+}
+```
+
+#### 방법 2: Postman 또는 Thunder Client 사용
+
+1. Postman (https://www.postman.com/downloads/) 또는 VS Code의 Thunder Client 확장 설치
+2. 새 요청 생성:
+   - Method: `POST`
+   - URL: `YOUR_BACKEND_URL/api/auth/register` (Railway에서 복사한 Backend URL 사용)
+   - Headers: `Content-Type: application/json`
+   - Body (raw JSON):
+   ```json
+   {
+     "email": "admin@mice.com",
+     "password": "admin123",
+     "name": "관리자",
+     "role": "ADMIN"
+   }
+   ```
+3. Send 클릭
+4. Speaker, Attendee도 동일하게 생성
+
+#### 방법 3: Frontend에서 회원가입 기능 추가 (권장하지 않음)
+
+일반적으로 Admin 계정은 API로 직접 생성하는 것이 보안상 좋습니다.
 
 ### 5-4. 로그인 테스트
 

@@ -70,11 +70,24 @@ git push origin main
 
 ### STEP 5: 초기 사용자 생성 (3분)
 
-터미널에서 실행 (URL을 본인 것으로 변경):
+**먼저 Backend API URL을 확인하세요:**
+
+1. Railway Dashboard → **Backend 서비스 클릭** (PostgreSQL 서비스 ❌, Backend 서비스 ✅)
+2. **Settings** 탭 → **Public Networking** 섹션
+3. **Generate Domain** 버튼 클릭 (아직 안 했다면)
+4. 생성된 URL 복사 (예: `https://web-production-xxxx.up.railway.app`)
+
+⚠️ **주의**: `postgres-production-xxxx.up.railway.app`는 **데이터베이스 URL**입니다. curl 명령어에는 사용하지 마세요!
+
+---
+
+**본인의 Mac 터미널**을 열고 아래 명령어 실행:
+
+> 💡 **https://mice-production.up.railway.app**을 위에서 복사한 Backend URL로 변경하세요!
 
 ```bash
-# Admin 계정
-curl -X POST https://mice-api.up.railway.app/api/auth/register \
+# Admin 계정 생성
+curl -X POST https://mice-production.up.railway.app/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@mice.com",
@@ -82,9 +95,18 @@ curl -X POST https://mice-api.up.railway.app/api/auth/register \
     "name": "관리자",
     "role": "ADMIN"
   }'
+```
 
-# Speaker 계정
-curl -X POST https://mice-api.up.railway.app/api/auth/register \
+**성공하면 이런 응답이 나옵니다:**
+```json
+{"message":"User created successfully","user":{"id":1,"email":"admin@mice.com",...}}
+```
+
+나머지도 실행:
+
+```bash
+# Speaker 계정 생성
+curl -X POST https://mice-production.up.railway.app/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "speaker@mice.com",
@@ -93,8 +115,8 @@ curl -X POST https://mice-api.up.railway.app/api/auth/register \
     "role": "SPEAKER"
   }'
 
-# Attendee 계정
-curl -X POST https://mice-api.up.railway.app/api/auth/register \
+# Attendee 계정 생성
+curl -X POST https://mice-production.up.railway.app/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "attendee@mice.com",
@@ -105,6 +127,8 @@ curl -X POST https://mice-api.up.railway.app/api/auth/register \
 ```
 
 ✅ 테스트 계정 생성 완료
+
+> 💡 **curl이 없다면?** Postman을 사용하거나 [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) 참고
 
 ---
 
