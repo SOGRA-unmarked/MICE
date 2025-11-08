@@ -2,20 +2,26 @@ const jwt = require('jsonwebtoken');
 
 /**
  * JWT 인증 미들웨어
- * Authorization 헤더에서 토큰을 추출하고 검증
+ * Authorization 헤더 또는 httpOnly 쿠키에서 토큰을 추출하고 검증
  */
 const authMiddleware = (req, res, next) => {
   try {
-    // Authorization 헤더에서 토큰 추출
-    const authHeader = req.headers.authorization;
+    // 1. 쿠키에서 토큰 추출 (우선순위)
+    // 2. Authorization 헤더에서 토큰 추출 (후순위 - 기존 호환성)
+    let token = req.cookies?.token;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7); // "Bearer " 제거
+      }
+    }
+
+    if (!token) {
       return res.status(401).json({
         error: { message: 'No token provided' }
       });
     }
-
-    const token = authHeader.substring(7); // "Bearer " 제거
 
     // 토큰 검증
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

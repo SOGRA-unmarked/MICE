@@ -2,6 +2,8 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const authMiddleware = require('../middleware/auth');
 const { isAttendee } = require('../middleware/rbac');
+const { questionValidator } = require('../middleware/validators');
+const { questionLimiter } = require('../middleware/rateLimiter');
 const NodeCache = require('node-cache');
 const path = require('path');
 const fs = require('fs');
@@ -129,16 +131,11 @@ router.get('/:id', authMiddleware, async (req, res) => {
  * POST /api/sessions/:id/questions
  * 세션에 질문 등록 (참가자)
  */
-router.post('/:id/questions', authMiddleware, async (req, res) => {
+router.post('/:id/questions', authMiddleware, questionLimiter, questionValidator, async (req, res) => {
   try {
     const sessionId = parseInt(req.params.id);
     const { questionText } = req.body;
-
-    if (!questionText || questionText.trim() === '') {
-      return res.status(400).json({
-        error: { message: 'Question text is required' }
-      });
-    }
+    // questionText는 이미 validators.js에서 escape되어 XSS 방지됨
 
     // 세션 존재 여부 확인
     const session = await prisma.session.findUnique({
@@ -252,7 +249,7 @@ router.delete('/:id/favorite', authMiddleware, async (req, res) => {
 
 /**
  * GET /api/sessions/:id/material
- * 세션 자료 다운로드
+ * 세션 자료 다운로드 (Path Traversal 방지)
  */
 router.get('/:id/material', authMiddleware, async (req, res) => {
   try {
@@ -268,13 +265,35 @@ router.get('/:id/material', authMiddleware, async (req, res) => {
       });
     }
 
-    const filePath = path.join(__dirname, '..', 'uploads', material.storedFileName);
+    // Path Traversal 방지
+    const uploadsDir = path.join(__dirname, '..', 'uploads');
+    const filePath = path.join(uploadsDir, path.basename(material.storedFileName));
+
+    // 경로가 uploads 디렉토리 내부인지 확인
+    if (!filePath.startsWith(uploadsDir)) {
+      return res.status(403).json({
+        error: { message: 'Access denied' }
+      });
+    }
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({
         error: { message: 'File not found on server' }
       });
     }
+
+    // Content-Type 헤더 설정
+    const ext = path.extname(material.originalFileName).toLowerCase();
+    const mimeTypes = {
+      '.pdf': 'application/pdf',
+      '.ppt': 'application/vnd.ms-powerpoint',
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    };
+
+    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${material.originalFileName}"`);
 
     res.download(filePath, material.originalFileName);
   } catch (error) {

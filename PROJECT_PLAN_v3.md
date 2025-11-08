@@ -211,12 +211,76 @@ model AttendanceLog {
 
 ## 8. 보안 구현 상세
 
-- **인증 (Authentication)**: 로그인 시 `jsonwebtoken`을 사용하여 7일 유효기간의 JWT를 발급. 이후 모든 API 요청의 `Authorization: Bearer <token>` 헤더를 통해 사용자를 식별.
-- **인가 (Authorization - RBAC)**:
+### 8.1 인증 및 인가 (Authentication & Authorization)
+
+- **JWT 기반 인증**: 로그인 시 `jsonwebtoken`을 사용하여 7일 유효기간의 JWT를 발급.
+- **httpOnly 쿠키**: JWT 토큰을 httpOnly 쿠키로 전송하여 XSS 공격으로부터 토큰 탈취를 방지. `sameSite: strict` 설정으로 CSRF 공격도 차단.
+- **하이브리드 인증 방식**: 기존 호환성을 위해 `Authorization: Bearer <token>` 헤더와 httpOnly 쿠키 모두 지원.
+- **역할 기반 접근 제어 (RBAC)**:
   - **Backend**: `authMiddleware`로 JWT를 검증하여 `req.user`에 사용자 정보를 주입. 이후 `isAdmin`, `isSpeaker` 등의 RBAC 미들웨어가 `req.user.role`을 확인하여 각 API에 대한 접근을 통제.
   - **Frontend**: `ProtectedRoute` 컴포넌트가 `AuthContext`의 `user.role`을 확인하여 역할에 맞지 않는 페이지 접근 시 리다이렉트.
-- **어뷰징 방지 (Anti-Abuse)**:
-  - **동적 QR**: 세션 출석용 QR은 `node-cache`를 이용해 60초의 유효기간을 갖는 일회성 토큰으로 생성. 동일 QR 재사용 및 공유를 통한 대리 출석을 방지.
-- **안전한 파일 처리**:
-  - **업로드**: `multer` 라이브러리를 사용. 서버 사이드에서 확장자(pdf, pptx 등)를 엄격히 검사하여 웹쉘 등 악성 파일 업로드를 차단. 파일명은 UUID로 변경하여 저장.
-  - **다운로드**: `GET /api/sessions/:id/material` API는 인증을 거치도록 하여, 인증된 사용자만 파일에 접근할 수 있도록 통제.
+
+### 8.2 입력 검증 및 XSS 방지
+
+- **express-validator**: 모든 사용자 입력에 대해 `express-validator`를 사용한 체계적인 검증 수행.
+  - 이메일 형식 검증 및 정규화
+  - 비밀번호 강도 검증 (최소 8자, 대소문자 및 숫자 포함)
+  - 텍스트 입력 길이 제한 및 HTML 이스케이프 처리
+- **XSS 방지**: 질문 텍스트, 사용자 이름 등 모든 사용자 입력에 대해 `escape()` 처리하여 악성 스크립트 실행 방지.
+- **SQL Injection 방지**: Prisma ORM의 parameterized queries를 통해 SQL Injection 공격으로부터 안전.
+
+### 8.3 Rate Limiting 및 Brute Force 방지
+
+- **express-rate-limit**: API 엔드포인트별로 차별화된 Rate Limiting 적용.
+  - 일반 API: 15분당 100회 요청 제한
+  - 로그인/회원가입: 15분당 5회 시도 제한
+  - 질문 등록: 1시간당 20회 제한
+- **계정 잠금 메커니즘**: 동일 계정으로 5회 이상 로그인 실패 시 15분간 계정 잠금.
+- **일반적인 비밀번호 차단**: `password`, `123456` 등 흔한 비밀번호 사용 금지.
+
+### 8.4 파일 업로드 보안
+
+- **확장자 및 MIME type 이중 검증**:
+  - 허용된 확장자: `.pdf`, `.ppt`, `.pptx`, `.doc`, `.docx`
+  - 허용된 MIME type: `application/pdf`, `application/vnd.ms-powerpoint` 등
+  - 확장자만 변경하여 악성 파일 업로드하는 공격 차단
+- **파일명 무작위화**: UUID를 사용하여 파일명을 무작위로 변경하여 저장.
+- **파일 크기 제한**: 최대 50MB 제한.
+- **Path Traversal 방지**:
+  - `path.basename()`을 사용하여 디렉토리 경로 제거
+  - 파일 경로가 `uploads` 디렉토리 내부인지 검증
+  - Content-Disposition 및 X-Content-Type-Options 헤더 설정
+
+### 8.5 보안 헤더 및 CORS
+
+- **Helmet.js**: 다양한 보안 헤더 자동 설정.
+  - Content Security Policy (CSP)
+  - HTTP Strict Transport Security (HSTS)
+  - X-Content-Type-Options
+  - X-Frame-Options
+- **CORS 설정**:
+  - 환경 변수를 통한 허용된 origin 목록 관리
+  - Vercel 프론트엔드와 Railway 백엔드 간 안전한 통신
+  - `credentials: true` 설정으로 쿠키 전송 지원
+
+### 8.6 로깅 및 모니터링
+
+- **Winston 로거**:
+  - 모든 보안 이벤트 기록 (로그인 성공/실패, 잘못된 접근 시도 등)
+  - 프로덕션: 파일 로그 (`error.log`, `combined.log`)
+  - 개발: 콘솔 및 파일 로그
+- **에러 메시지 안전화**: 프로덕션 환경에서는 상세한 에러 정보 노출 방지.
+
+### 8.7 어뷰징 방지
+
+- **동적 QR**: 세션 출석용 QR은 `node-cache`를 이용해 60초의 유효기간을 갖는 일회성 토큰으로 생성. 동일 QR 재사용 및 공유를 통한 대리 출석을 방지.
+- **중복 출석 방지**: 데이터베이스 unique 제약조건으로 동일 사용자의 중복 출석 차단.
+
+### 8.8 배포 환경 보안 (Vercel + Railway)
+
+- **환경 변수 관리**:
+  - `.env` 파일은 `.gitignore`에 포함하여 Git 저장소에서 제외
+  - Railway 및 Vercel 대시보드에서 환경 변수 안전하게 관리
+  - `ALLOWED_ORIGINS`, `JWT_SECRET` 등 민감 정보 환경 변수화
+- **HTTPS 강제**: 프로덕션 환경에서 HTTPS만 허용 (`secure: true` 쿠키 옵션).
+- **로그 파일 관리**: Railway에서 Winston 로그를 통한 보안 이벤트 추적.

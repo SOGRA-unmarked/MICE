@@ -29,11 +29,21 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  // 허용된 파일 확장자 (whitelist)
+  // 허용된 파일 확장자 및 MIME type (whitelist)
   const allowedExtensions = ['.pdf', '.ppt', '.pptx', '.doc', '.docx'];
-  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
 
-  if (allowedExtensions.includes(ext)) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const mimeType = file.mimetype;
+
+  // 확장자와 MIME type 모두 검증
+  if (allowedExtensions.includes(ext) && allowedMimeTypes.includes(mimeType)) {
     cb(null, true);
   } else {
     cb(new Error('Invalid file type. Only PDF, PPT, PPTX, DOC, DOCX are allowed.'));

@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const logger = require('./utils/logger');
+const { apiLimiter } = require('./middleware/rateLimiter');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -13,19 +17,59 @@ const userRoutes = require('./routes/users');
 const app = express();
 const PORT = process.env.PORT || 5050;
 
-// Middleware
-// CORS 설정 - 배포 환경에서는 FRONTEND_URL 환경 변수 사용
+// 보안 헤더 설정 (Helmet)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// CORS 설정 개선 - 여러 origin 지원
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000'];
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // origin이 없는 경우 허용 (모바일 앱, Postman 등)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
+
 app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files for uploaded materials
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Rate Limiting - 모든 API 엔드포인트에 적용
+app.use('/api/', apiLimiter);
+
+// Static files for uploaded materials - 보안 헤더 추가
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Content-Disposition', 'attachment');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -39,13 +83,29 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'MICE Backend is running' });
 });
 
-// Error handling middleware
+// Error handling middleware - 민감 정보 노출 방지
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  // 로거를 통해 에러 기록
+  logger.error('Server error:', {
+    message: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip
+  });
+
+  // 프로덕션에서는 일반적인 메시지만 노출
+  const message = process.env.NODE_ENV === 'production'
+    ? 'Internal Server Error'
+    : err.message;
+
   res.status(err.status || 500).json({
     error: {
-      message: err.message || 'Internal Server Error',
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+      message,
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: err.stack,
+        details: err.message
+      })
     }
   });
 });
@@ -56,8 +116,10 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
+  logger.info(`🚀 MICE Backend Server running on port ${PORT}`);
+  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🚀 MICE Backend Server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Trigger redeploy
