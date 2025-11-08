@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
-import axios from 'axios'
+import api from '../../config/api'
 import { useAuth } from '../../context/AuthContext'
 
 const AdminQRDisplay = () => {
@@ -36,7 +36,7 @@ const AdminQRDisplay = () => {
 
   const fetchSession = async () => {
     try {
-      const response = await axios.get(`/api/sessions/${id}`, {
+      const response = await api.get(`/api/sessions/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setSession(response.data.session)
@@ -47,7 +47,7 @@ const AdminQRDisplay = () => {
 
   const fetchQR = async () => {
     try {
-      const response = await axios.get(`/api/admin/sessions/${id}/dynamic-qr`, {
+      const response = await api.get(`/api/admin/sessions/${id}/dynamic-qr`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setQrData(response.data)

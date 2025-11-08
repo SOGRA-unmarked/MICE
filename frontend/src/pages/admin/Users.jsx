@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../../config/api'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
 
@@ -23,7 +23,7 @@ const AdminUsers = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('/api/admin/users', {
+      const response = await api.get('/api/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       })
       setUsers(response.data.users)
@@ -37,7 +37,7 @@ const AdminUsers = () => {
   const handleCreateUser = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('/api/admin/users', formData, {
+      await api.post('/api/admin/users', formData, {
         headers: { Authorization: `Bearer ${token}` }
       })
       alert('사용자가 생성되었습니다!')
@@ -52,7 +52,7 @@ const AdminUsers = () => {
   const handleUpdateUser = async (e) => {
     e.preventDefault()
     try {
-      await axios.put(
+      await api.put(
         `/api/admin/users/${editingUser.id}`,
         {
           name: formData.name,
@@ -75,7 +75,7 @@ const AdminUsers = () => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
     try {
-      await axios.delete(`/api/admin/users/${userId}`, {
+      await api.delete(`/api/admin/users/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       alert('사용자가 삭제되었습니다!')

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
+import api from '../../config/api'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
 
@@ -27,10 +27,10 @@ const AdminSessions = () => {
   const fetchData = async () => {
     try {
       const [sessionsRes, usersRes] = await Promise.all([
-        axios.get('/api/admin/sessions', {
+        api.get('/api/admin/sessions', {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('/api/admin/users', {
+        api.get('/api/admin/users', {
           headers: { Authorization: `Bearer ${token}` }
         })
       ])
@@ -47,7 +47,7 @@ const AdminSessions = () => {
   const handleCreateSession = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('/api/admin/sessions', formData, {
+      await api.post('/api/admin/sessions', formData, {
         headers: { Authorization: `Bearer ${token}` }
       })
       alert('세션이 생성되었습니다!')
@@ -62,7 +62,7 @@ const AdminSessions = () => {
   const handleUpdateSession = async (e) => {
     e.preventDefault()
     try {
-      await axios.put(
+      await api.put(
         `/api/admin/sessions/${editingSession.id}`,
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -81,7 +81,7 @@ const AdminSessions = () => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
     try {
-      await axios.delete(`/api/admin/sessions/${sessionId}`, {
+      await api.delete(`/api/admin/sessions/${sessionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       alert('세션이 삭제되었습니다!')

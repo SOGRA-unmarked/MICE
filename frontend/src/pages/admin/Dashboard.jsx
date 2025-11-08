@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
+import api from '../../config/api'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
 
@@ -20,10 +20,10 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     try {
       const [usersRes, sessionsRes] = await Promise.all([
-        axios.get('/api/admin/users', {
+        api.get('/api/admin/users', {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('/api/admin/sessions', {
+        api.get('/api/admin/sessions', {
           headers: { Authorization: `Bearer ${token}` }
         })
       ])

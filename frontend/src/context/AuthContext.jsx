@@ -18,7 +18,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    console.log('[AuthContext] useEffect triggered. Token:', token);
     // 토큰이 있으면 사용자 정보 로드
     if (token) {
       loadUser()
@@ -34,7 +33,6 @@ export const AuthProvider = ({ children }) => {
           Authorization: `Bearer ${token}`
         }
       })
-      console.log('[AuthContext] loadUser successful. Response data:', response.data);
       setUser(response.data.user)
     } catch (error) {
       console.error('Load user error:', error)
