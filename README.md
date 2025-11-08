@@ -2,6 +2,8 @@
 
 충청권 MICE 행사/컨퍼런스 비표 발급 및 세션 관리 웹 서비스
 
+> 🤝 **협업 중이신가요?** [협업 가이드](./COLLABORATION_GUIDE.md) | [초기 설정 체크리스트](./SETUP_CHECKLIST.md)
+
 ## 프로젝트 개요
 
 MICE 행사를 위한 올인원 관리 플랫폼입니다.
@@ -258,6 +260,11 @@ MIT
 
 ## 문서
 
+### 📚 개발 문서
 - [Backend README](./backend/README.md)
 - [Frontend README](./frontend/README.md)
 - [API 문서](./backend/README.md#api-엔드포인트)
+
+### 🤝 협업 문서
+- [협업 가이드](./COLLABORATION_GUIDE.md) - **신규 팀원 필독!**
+- [초기 설정 체크리스트](./SETUP_CHECKLIST.md) - 단계별 체크리스트
