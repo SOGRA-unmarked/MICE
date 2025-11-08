@@ -43,7 +43,7 @@ const EventEntry = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/admin/event-entry/stats')
+      const response = await api.get('/api/admin/event-entry/stats')
       setStats(response.data)
     } catch (error) {
       console.error('Failed to fetch stats:', error)
@@ -81,7 +81,7 @@ const EventEntry = () => {
       }
 
       console.log('API 호출 중... userId:', userId) // 디버깅용
-      const response = await api.post('/admin/event-entry', { userId })
+      const response = await api.post('/api/admin/event-entry', { userId })
 
       setLastScanResult({
         success: true,
