@@ -59,3 +59,6 @@ app.listen(PORT, () => {
   console.log(`🚀 MICE Backend Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
 });
+
+// Trigger redeploy
+
