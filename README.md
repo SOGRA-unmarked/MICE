@@ -2,7 +2,7 @@
 
 충청권 MICE 행사/컨퍼런스를 위한 비표 발급 및 세션 관리 웹 서비스입니다. 이 프로젝트는 참가자, 연사, 관리자별 역할을 분리하고, 동적 QR 코드를 활용한 안전한 출석 체크 시스템을 제공합니다.
 
-> 🤝 **팀원 가이드:** [협업 가이드](./COLLABORATION_GUIDE.md) | [초기 설정 체크리스트](./SETUP_CHECKLIST.md)
+> 🤝 **팀원 가이드:**  [초기 설정 체크리스트](./SETUP_CHECKLIST.md)
 
 ## 🚀 배포 정보 (Production)
 
@@ -16,12 +16,6 @@
 - **Frontend**: React 기반의 정적 파일을 Vercel에 배포하여 빠른 로딩 속도와 글로벌 CDN을 활용합니다.
 - **Backend**: Node.js 서버를 Railway에 배포하여 운영합니다.
 - **Database**: Railway의 PostgreSQL 서비스를 백엔드 서버에 연동하여 사용합니다.
-
-### 배포 가이드
-
-- **[🚀 빠른 시작 가이드](./DEPLOYMENT_QUICK_START.md)**: 5단계로 빠르게 전체 서비스를 배포하는 방법을 안내합니다.
-- **[상세 배포 가이드](./DEPLOYMENT_GUIDE.md)**: 각 단계에 대한 상세한 설명과 문제 해결 방법을 포함합니다.
-- **[배포 체크리스트](./DEPLOYMENT_CHECKLIST.md)**: 배포 전후 확인할 항목 목록입니다.
 
 ---
 
